@@ -5,7 +5,8 @@ import datetime as dt
 import lzma
 import smtplib
 import os
-import boto3
+# import boto3
+from configparser import ConfigParser
 from email.mime.text import MIMEText
 from fdb import services
 
@@ -23,24 +24,38 @@ __author__ = 'Fabricio L. Ribeiro'
     a fim de parametrizar os dados particulares da execução.
 '''
 
+''' TODO: Criar classes para gerenciar log e conexão ao Firebird. '''
+
 
 log = ''
 var = dict()
 con = ''
+
+# Implementar classe pra gerenciar arquivo de log.
+class ArquivoLog():
+    pass
 
 
 def parseconfig():
     global log
     global var
 
-    with open('orgbkp.ini', "r") as harq:
-        for line in harq:
-            linha = line.rstrip()
-            if linha.startswith('#') or len(linha) <= 1:
-                continue
-            else:
-                aux = linha.split('=')
-                var[aux[0]] = aux[1]
+    conf = ConfigParser()
+    conf.read('orgbkp.ini')
+    geralcf = dict(conf['GERAL'])
+    awscf = dict(conf['AWS'])
+    emailcf = dict(conf['E-mail'])
+    return geralcf, awscf, emailcf
+
+
+        ### Antiga implementação, antes da biblioteca configparser ser utilizada:
+        # for line in arqconf:
+        #     linha = line.rstrip()
+        #     if linha.startswith('#') or len(linha) <= 1:
+        #         continue
+        #     else:
+        #         aux = linha.split('=')
+        #         var[aux[0]] = aux[1]
 
     ### O trecho abaixo foi removido por ter sido trocado pela cláusula with acima.
     #
@@ -218,6 +233,10 @@ def main(argv):
     gera_arq_log()
 
 
+def test(argv):
+    conf, awsconf, mailconf = parseconfig()
+
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    ## main(sys.argv)
+    test(sys.argv)
