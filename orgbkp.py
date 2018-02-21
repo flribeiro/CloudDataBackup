@@ -31,11 +31,6 @@ var = dict()
 con = ''
 
 
-# Implementar classe pra gerenciar arquivo de log.
-class ArquivoLog():
-    pass
-
-
 class Conf(object):
     def __init__(self, ini):
         self.__conf = ConfigParser()
@@ -60,11 +55,16 @@ class Conf(object):
 
 class ArquivoDeLog(object):
     def __init__(self, ini):
-        print(ini.geral('user_fb'))
+
+        con = ConexaoFB(ini.geral('ip_servidor'), ini.geral('user_fb'), ini.geral('pass_fb'),
+                        ini.geral('dir_bd'), ini.geral('dir_backup'), ini.geral('nome_cliente'),
+                        self)
+
         self.__log = '\n\n|=====================< ' + now() + ' >=====================|\n' \
-                          'Versão do Firebird: ' + conecta_firebird(ini).get_server_version() + '\n' \
-                          'Usuario do banco de dados: ' + ini.geral('user_fb') + '\n' \
-                          'IP do servidor: ' + ini.geral('ip_servidor') + '\n'
+                     'Versão do Firebird: ' + con.versao_firebird() + '\n' \
+                     'Usuario do banco de dados: ' + ini.geral('user_fb') + '\n' \
+                     'IP do servidor: ' + ini.geral('ip_servidor') + '\n'
+
         self.registra_log('Processo iniciado.')
 
     def registra_log(self, msg):
@@ -90,9 +90,14 @@ class ArquivoDeLog(object):
 
 
 class ConexaoFB(object):
-    __con, __cliente, __bd, __bkp, __cliente = ''
+    __con, __cliente, __bd, __bkp, __cliente, arqlog = '', '', '', '', '', ''
 
-    def __init__(self, ip, usuario, senha, uribd, uribkp, cliente):
+    def __init__(self, ip, usuario, senha, uribd, uribkp, cliente,
+                 arqlog: ArquivoDeLog):
+        self.__bd = uribd
+        self.__bkp = uribkp + 'osbd.fbk'
+        self.__cliente = cliente
+        self.arqlog = arqlog
         try:
             self.__con = services.connect(
                 host=ip,
@@ -103,89 +108,38 @@ class ConexaoFB(object):
             msg = 'Houve um erro ao tentar conectar-se ao servidor de ' \
                   'banco de dados: {}.'.format(str(e))
             print(msg)
-            # registrar log no objeto ArquivoDeLog
-        self.__bd = uribd
-        self.__bkp = uribkp + 'osbd.fbk'
-        self.__cliente = cliente
+            self.arqlog.registra_log(msg)
 
     def backup(self):
-        # Registrar início do backup no log
+        self.arqlog.registra_log('Backup iniciado.')
         try:
             self.__con.backup(self.__bd, self.__bkp, metadata_only=True, collect_garbage=False)
             self.__con.wait()
         except fdb.fbcore.DatabaseError as erro:
             msg = 'Houve um problema no backup: ' + str(erro)
             print(msg)
-            # Registrar erro no log.
-        # Registrar no log ('Backup concluído.')
+            self.arqlog.registra_log(msg)
+        self.arqlog.registra_log('Backup concluído.')
         self.__con.readlines()
 
     def restore(self):
-        # Registrar início do restore no log
+        self.arqlog.registra_log('Restore iniciado.')
         try:
             self.__con.restore(self.__bkp, self.__bkp + 'teste.fdb', replace=1)
             self.__con.wait()
         except fdb.fbcore.DatabaseError as erro:
             msg = 'Houve um problema no restore: ' + str(erro)
             print(msg)
-            # Registra erro no log
-        # Registra no log ('Restore concluído.')
+            self.arqlog.registra_log(msg)
+        self.arqlog.registra_log('Restore concluído.')
         self.__con.readlines()
 
-
-### DESCONTINUADA após implementação da classe ConexaoFB
-# def conecta_firebird(ini):
-#     global var, con
-#     try:
-#         con = services.connect(
-#             host=ini.geral('ip_servidor'),
-#             user=ini.geral('user_fb'),
-#             password=ini.geral('pass_fb')
-#         )
-#     except fdb.Error as e:
-#         msg = 'Houve um erro ao tentar conectar-se ao banco de dados: %s' % str(e)
-#         print(msg)
-#         # registra_log(msg)
-#     return con
+    def versao_firebird(self):
+        return self.__con.get_server_version()
 
 
-# def backup():
-#     global var, con
-#     arq_backup = var['dir_backup'] + 'osbd.fbk'
-#     con = conecta_firebird()
-#     registra_log('Iniciando backup.')
-#     try:
-#         con.backup(var['dir_bd'], arq_backup, metadata_only=True, collect_garbage=False)
-#         con.wait()
-#     except fdb.fbcore.DatabaseError as erro:
-#         msg = 'Houve um problema no backup: ' + str(erro)
-#         print(msg)
-#         registra_log(msg)
-#     registra_log('Backup concluído.')
-#     return con.readlines()
-
-
-# def restore():
-#     global var
-#     arq_backup = var['dir_backup'] + 'osbd.fbk'
-#     con = conecta_firebird()
-#     registra_log('Iniciando restore.')
-#     try:
-#         con.restore(arq_backup, var['dir_backup'] + 'teste.fdb', replace=1)
-#         con.wait()
-#     except fdb.fbcore.DatabaseError as erro:
-#         msg = 'Houve um problema no restore: ' + str(erro)
-#         print(msg)
-#         registra_log(msg)
-#     registra_log('Restore concluído.')
-#     return con.readlines()
-
-
-def nome_arquivo_datahora():
-    global var
-    txt = str(dt.datetime.now())
-    txt = txt[0:13].replace(' ', '').replace('-', '') + '.7z'
-    return str(var['nome_cliente']).replace(' ', '') + txt
+def nome_arquivo_datahora(ini):
+    return ini.geral('nome_cliente').replace(' ', '') + now('nomearq')
 
 
 def now(opc=''):
@@ -195,6 +149,7 @@ def now(opc=''):
         "mes": data[5:7],
         "dia": data[8:10],
         "hora": data[11:16],
+        "nomearq": data[0:13].replace(' ', '').replace('-', '') + '.7z',
         "": data[0:10],
     }
     return escolhas.get(opc, "")
@@ -213,24 +168,32 @@ def compacta_bkp():
     registra_log('Compactação concluída.')
 
 
-def upload_to_s3():
-    global var
-    registra_log('Iniciando upload para S3.')
-    session = boto3.Session(aws_access_key_id=var['aws_access_key_id'],
-                            aws_secret_access_key=var['aws_secret_access_key'])
+def upload_to_s3(ini):
+    session = boto3.Session(aws_access_key_id=ini.aws('aws_access_key_id'),
+                            aws_secret_access_key=ini.aws('aws_secret_access_key'))
     print(session.get_available_resources())
     print(session.get_available_services())
-    s3 = session.resource("s3")
-    # s3 = session.client("s3")
-    dados = open(var['dir_backup'] + var['arq_7zip'], 'rb')
-    caminho = var['nome_cliente'] + '/' + now('ano') + '/' + now('mes') + '/' + now('dia') + '/' + var['arq_7zip']
-    try:
-        s3.Bucket('orgsystem.backup').put_object(Key=caminho, Body=dados)
-        registra_log('Upload para S3 concluído.')
-    except boto3.S3UploadFailedError as err:
-        msg = 'Houve um problema no restore: ' + str(err)
-        print(msg)
-        registra_log(msg)
+    # s3 = session.resource("s3")
+
+
+    s3 = session.client("s3")
+    resposta = s3.list_buckets()
+    print("resposta: {}".format(resposta))
+    buckets = [bucket['Name'] for bucket in resposta['Buckets']]
+    print("lista de buckets: {}".format(buckets))
+    s3.create_bucket(Bucket='bucket-teste-flr')
+    acl = s3.get_bucket_acl(Bucket='bucket-teste-flr')
+    print(acl)
+
+    # dados = open(var['dir_backup'] + var['arq_7zip'], 'rb')
+    # caminho = var['nome_cliente'] + '/' + now('ano') + '/' + now('mes') + '/' + now('dia') + '/' + var['arq_7zip']
+    # try:
+    #     s3.Bucket('orgsystem.backup').put_object(Key=caminho, Body=dados)
+    #     registra_log('Upload para S3 concluído.')
+    # except boto3.S3UploadFailedError as err:
+    #     msg = 'Houve um problema no restore: ' + str(err)
+    #     print(msg)
+    #     registra_log(msg)
 
 
 def notifica_email():
@@ -253,6 +216,14 @@ def notifica_email():
         registra_log(msg)
         exit()
     registra_log('Notificação enviada para: ' + var['mail_to'] + '.')
+
+
+class Teste:
+    def __init__(self, alog: ArquivoDeLog):
+        self.arqlog = alog
+
+    def escreve_no_log(self, texto):
+        self.arqlog.registra_log(texto)
 
 
 def main(argv):
@@ -292,10 +263,14 @@ def test(argv):
     alog = ArquivoDeLog(ini)
     print(alog.mostra_log())
     alog.registra_log("Teste.")
+    teste_log = Teste(alog)
+    teste_log.escreve_no_log("Esse veio da classe Teste.")
     alog.registra_log("Outra mensagem.")
     alog.registra_log("Última.")
     alog.grava_arq_log()
+    print(nome_arquivo_datahora(ini))
     # Testar conexão FB, métodos: backup e restore.
+    upload_to_s3(ini)
 
 
 if __name__ == "__main__":
