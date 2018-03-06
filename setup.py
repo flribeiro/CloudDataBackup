@@ -11,6 +11,7 @@ setup(
     description='Programa para automação do backup das bases de dados de clientes da Org.',
     install_requires=['boto3',
                       'fdb'],
+    python_requires='>=3',
     package_data={
         '': ['orgbkp_model.ini'],
         }
