@@ -1,16 +1,16 @@
 import sys
 import argparse as ap
+import textwrap as tw
 
 
 def main(argv):
-    parser = ap.ArgumentParser(description='Apenas um teste.',
-                               epilog='Desnvolvido por Fabricio L. Ribeiro '
-                                      '(contato@fabriciolribeiro.com)')
-    parser.add_argument('inteiro', metavar='N', type=int, nargs='+',
-                        help='um inteiro para o acumulador')
-    parser.add_argument('--sum', dest='accumulate', action='store_const',
-                        const=sum, default=max, help='soma os inteiros (padrão: acha '
-                                                     'o max)')
+    parser = ap.ArgumentParser(prog='PyOrgBKP',
+                               description='Aplicativo destinado a automatizar o backup, '
+                                           'teste e upload do backup compactado de uma base '
+                                           'de dados Firebird utilizada em sistemas da '
+                                           'Orgsystem Software.',
+                               epilog='Desnvolvido por Fabricio L. Ribeiro (contato@fabriciolribeiro.com), 2018.')
+    parser.add_argument('--conf', type=, )
     args = parser.parse_args()
     print(args.accumulate(args.inteiro))
 
