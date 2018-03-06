@@ -6,3 +6,6 @@ orgbkp.ini
 /Include
 pip-selfcheck.json
 pyvenv.cfg
+/man
+/OrgBKP.egg-info
+/dist
