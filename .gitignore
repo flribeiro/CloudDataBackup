@@ -1,2 +1,8 @@
 orgbkp.ini
 .pypirc
+/Lib
+/scripts
+/.idea
+/Include
+pip-selfcheck.json
+pyvenv.cfg

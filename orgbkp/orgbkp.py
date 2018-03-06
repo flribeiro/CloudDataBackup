@@ -7,6 +7,7 @@ import smtplib
 import os
 import boto3
 import os.path
+import argparse as ap
 from boto3 import exceptions
 from configparser import ConfigParser
 from email.mime.text import MIMEText
@@ -17,11 +18,11 @@ __version__ = '0.1'
 
 ''' Aplicação destinada a fazer backup da base de dados Firebird da Orgsystem
     Software, testar o restore e, se tudo estiver dentro dos conformes, faz
-    a compactação do arquivo de backup usando o método 'lzma' e, por fim, 
+    a compactação do arquivo de backup usando o método 'lzma' e, por fim,
     faz o upload do arquivo para um bucket no S3 da Amazon AWS.
-    
+
     Tudo isso gerando um log que será enviado por e-mail para os interessados.
-    
+
     Um arquivo de configuração é lido no diretório config/ da raiz da aplicação,
     a fim de parametrizar os dados particulares da execução.
 '''
@@ -227,13 +228,32 @@ def notifica_email(ini: Conf, alog: ArquivoDeLog):
 
 
 def main(argv):
+    ''' Padrão para arquivo de inicialização '''
     arqconfig = 'orgbkp.ini'
-    if len(argv) > 1:
-        if argv[1] == '--config' or argv[1] == '-c':
-            if argv[2] is not None:
-                arqconfig = argv[2]
+    parser = ap.ArgumentParser(prog='PyOrgBKP',
+                               description='Aplicativo destinado a automatizar o backup, '
+                                           'teste e upload do backup compactado de uma base '
+                                           'de dados Firebird utilizada em sistemas da '
+                                           'Orgsystem Software.',
+                               epilog='Desnvolvido por Fabricio L. Ribeiro (contato@fabriciolribeiro.com), 2018.')
+    parser.add_argument('--conf', '-c',
+                        help='Estipula um arquivo de inicializacao avulso, \
+                             caso nao haja um "orgbkp.ini" presente no \
+                             diretorio base do script.',
+                        type=str)
+    args = parser.parse_args()
+    d = dict(vars(args))
+
+    ''' Se veio outro arquivo INI pela linha de comando... '''
+    if d['conf'] is not None:
+        if isfile(d['conf']):
+            arqconfig = d['conf']
     ini = Conf(arqconfig)
+
+    ''' Instancia objeto ArquivoDeLog '''
     alog = ArquivoDeLog(ini)
+
+    ''' Instancia objeto ConexaoFB '''
     fb = ConexaoFB(
         ini.geral('ip_servidor'),
         ini.geral('user_fb'),
@@ -243,18 +263,26 @@ def main(argv):
         ini.geral('nome_cliente'),
         alog
     )
+
+    ''' Efetua backup/restore '''
     fb.backup()
     fb.restore()
+
+    ''' Compacta arquivo de backup '''
     s7zip = compacta_bkp(ini, alog)
     if not s7zip:
         alog.registra_log('Não foi possível compactar o arquivo.')
     else:
         alog.registra_log('Compactação do arquivo de backup: OK.')
+
+    ''' Faz upload do arquivo para AWS S3 '''
     s3 = envia_s3(ini, alog)
     if not s3:
         alog.registra_log('Não foi possível enviar o backup para o S3.')
     else:
         alog.registra_log('Upload do backup para S3: OK.')
+
+    ''' Envia notificação e grava log. '''
     notifica_email(ini, alog)
     alog.grava_arq_log()
 
