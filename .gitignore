@@ -1,4 +1,4 @@
-orgbkp.ini
+cldbkp.ini
 .pypirc
 /Lib
 /scripts
@@ -7,5 +7,5 @@ orgbkp.ini
 pip-selfcheck.json
 pyvenv.cfg
 /man
-/OrgBKP.egg-info
+/CldBKP.egg-info
 /dist
