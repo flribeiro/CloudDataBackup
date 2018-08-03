@@ -9,3 +9,4 @@ pyvenv.cfg
 /man
 /CldBKP.egg-info
 /dist
+.vscode

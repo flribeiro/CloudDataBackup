@@ -246,7 +246,7 @@ def main(argv):
 
     ''' Se veio outro arquivo INI pela linha de comando... '''
     if d['conf'] is not None:
-        if isfile(d['conf']):
+        if os.path.isfile(d['conf']):
             arqconfig = d['conf']
     ini = Conf(arqconfig)
 
